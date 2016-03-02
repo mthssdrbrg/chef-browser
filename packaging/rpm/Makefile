@@ -14,20 +14,22 @@ TAG_SPEC=refs/tags/$(VERSION)
 CHECKOUT_DIR=chef-browser-checkout
 BUILD_DIR=build
 LIB_DIR=$(BUILD_DIR)/opt/chef-browser
-BIN_DIR=$(BUILD_DIR)/opt/bin
+BIN_DIR=$(BUILD_DIR)/opt/chef-browser/bin
 GEM_PATH:=$(shell readlink -f .)/build/gem
 CHEF_BROWSER_BIN=$(BIN_DIR)/chef-browser
-RUBY_CMD=/usr/bin/ruby
+RUBY_VERSION?=
+RUBY_PKG=ruby$(subst .,,$(RUBY_VERSION))
+RUBY_CMD=/usr/bin/ruby$(RUBY_VERSION)
 BUNDLE_BIN=$(GEM_PATH)/bin/bundle
 BUNDLE_CMD=$(RUBY_CMD) $(BUNDLE_BIN)
-FPM_CMD=/opt/bin/fpm
+FPM_CMD?=/opt/bin/fpm
 GEM_CMD=$(RUBY_CMD) -S gem
 
 .PHONY: clean
 clean:
 	rm -rf $(CHECKOUT_DIR)
 	rm -rf $(BUILD_DIR)
-	rm -f chef-browser*.rpm
+	rm -f ruby*-chef-browser*.rpm
 
 $(CHECKOUT_DIR):
 	rm -rf $(CHECKOUT_DIR)
@@ -39,14 +41,14 @@ $(BUNDLE_BIN):
 
 $(CHEF_BROWSER_BIN):
 	mkdir --parents $(BIN_DIR)
-# 	Couldn't think of a nice way to do this, so here is this code turd
-	cp bin/chef-browser $(CHEF_BROWSER_BIN)
+	echo "#!/usr/bin/env ruby$(RUBY_VERSION)" > $(CHEF_BROWSER_BIN)
+	cat bin/chef-browser >> $(CHEF_BROWSER_BIN)
 	chmod +x $(CHEF_BROWSER_BIN)
 
 .PHONY: install
 install: $(CHECKOUT_DIR) $(BUNDLE_BIN) $(CHEF_BROWSER_BIN)
 	mkdir --parents $(LIB_DIR)
-	cd $(CHECKOUT_DIR) && GEM_PATH=$(GEM_PATH) $(BUNDLE_CMD) install --without=development --standalone
+	cd $(CHECKOUT_DIR) && GEM_PATH=$(GEM_PATH) $(BUNDLE_CMD) install --without=development test --standalone
 	cp -r $(CHECKOUT_DIR)/bundle $(LIB_DIR)/bundle
 	cp -r $(CHECKOUT_DIR)/lib $(LIB_DIR)/lib
 	cp -r $(CHECKOUT_DIR)/public $(LIB_DIR)/public
@@ -59,5 +61,5 @@ install: $(CHECKOUT_DIR) $(BUNDLE_BIN) $(CHEF_BROWSER_BIN)
 
 .PHONY: package
 package: install
-	$(FPM_CMD) -s dir -t rpm -n chef-browser -d ruby -d libicu -d zlib -d openssl -v $(VERSION) -C $(BUILD_DIR) opt
+	$(FPM_CMD) -s dir -t rpm -n $(RUBY_PKG)-chef-browser -d $(RUBY_PKG) -d libicu -d zlib -d openssl -v $(VERSION) -C $(BUILD_DIR) opt
 
