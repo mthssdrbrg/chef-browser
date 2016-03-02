@@ -1,0 +1,68 @@
+#!/bin/bash
+# Chef Browser daemon
+# chkconfig: 23456 60 10
+# description: chef-browser daemon
+# processname: chef-browser
+
+NAME="chef-browser"
+WORK_DIR="/opt/$NAME"
+USER="chef-browser"
+COMMAND="$WORK_DIR/bin/chef-browser"
+PIDFILE="$WORK_DIR/run/$NAME.pid"
+LOGFILE="$WORK_DIR/log/$name.log"
+SUBSYS_LOCKFILE=/var/lock/subsys/$NAME
+RETVAL=0
+
+[ -f /etc/init.d/functions ] && . /etc/init.d/functions
+[ -f /etc/sysconfig/$NAME ] && . /etc/sysconfig/$NAME
+
+function start() {
+  action "Starting $NAME" daemon --user="$USER" --pidfile="$PIDFILE" "$COMMAND $COMMAND_ARGS -D -P $PIDFILE &>> $LOGFILE"
+  check-running "$(cat "$PIDFILE")"
+}
+
+function check-running() {
+  local tries=0
+  while (( tries < 5 )); do
+    if status -p "$PIDFILE" "$NAME" &> /dev/null; then
+      touch -a "$SUBSYS_LOCKFILE"
+      RETVAL=0
+      return
+    fi
+    tries=$((tries + 1))
+    sleep 1
+  done
+  RETVAL=1
+}
+
+function stop() {
+  action "Stopping $NAME" killproc -p "$PIDFILE" "$NAME"
+  RETVAL=$?
+  rm -f "$SUBSYS_LOCKFILE"
+}
+
+case "$1" in
+  start)
+    start
+  ;;
+
+  status)
+    status -p "$PIDFILE" "$NAME"
+    RETVAL=$?
+  ;;
+
+  stop)
+    stop
+  ;;
+
+  restart)
+    $0 stop
+    $0 start
+  ;;
+
+  *)
+    echo "Usage: $0 {status|start|stop|restart}"
+    exit 1
+esac
+
+exit $RETVAL

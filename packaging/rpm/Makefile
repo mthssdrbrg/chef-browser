@@ -24,6 +24,9 @@ BUNDLE_BIN=$(GEM_PATH)/bin/bundle
 BUNDLE_CMD=$(RUBY_CMD) $(BUNDLE_BIN)
 FPM_CMD?=/opt/bin/fpm
 GEM_CMD=$(RUBY_CMD) -S gem
+USER=chef-browser
+RPM_FLAGS=--rpm-user $(USER) --rpm-group $(USER) --rpm-init bin/chef-browser.init --rpm-auto-add-directories
+FPM_FLAGS=--before-install bin/before-install.sh --template-scripts
 
 .PHONY: clean
 clean:
@@ -33,7 +36,7 @@ clean:
 
 $(CHECKOUT_DIR):
 	rm -rf $(CHECKOUT_DIR)
-	git clone $(GIT_URL) $(CHECKOUT_DIR) --depth 1
+	git clone $(GIT_URL) $(CHECKOUT_DIR)
 	cd $(CHECKOUT_DIR) && git fetch && git checkout $(TAG_SPEC)
 
 $(BUNDLE_BIN):
@@ -48,6 +51,8 @@ $(CHEF_BROWSER_BIN):
 .PHONY: install
 install: $(CHECKOUT_DIR) $(BUNDLE_BIN) $(CHEF_BROWSER_BIN)
 	mkdir --parents $(LIB_DIR)
+	mkdir --parents $(LIB_DIR)/run
+	mkdir --parents $(LIB_DIR)/log
 	cd $(CHECKOUT_DIR) && GEM_PATH=$(GEM_PATH) $(BUNDLE_CMD) install --without=development test --standalone
 	cp -r $(CHECKOUT_DIR)/bundle $(LIB_DIR)/bundle
 	cp -r $(CHECKOUT_DIR)/lib $(LIB_DIR)/lib
@@ -61,5 +66,5 @@ install: $(CHECKOUT_DIR) $(BUNDLE_BIN) $(CHEF_BROWSER_BIN)
 
 .PHONY: package
 package: install
-	$(FPM_CMD) -s dir -t rpm -n $(RUBY_PKG)-chef-browser -d $(RUBY_PKG) -d libicu -d zlib -d openssl -v $(VERSION) -C $(BUILD_DIR) opt
+	$(FPM_CMD) -s dir -t rpm $(RPM_FLAGS) $(FPM_FLAGS) -n $(RUBY_PKG)-chef-browser -d $(RUBY_PKG) -d libicu -d zlib -d openssl -v $(VERSION) -C $(BUILD_DIR) opt
 
